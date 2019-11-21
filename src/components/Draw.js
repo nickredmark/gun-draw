@@ -35,6 +35,48 @@ export const Draw = ({ drawing, onCreatePath, onSetTitle }) => {
     }
   }, [drawing, line, color, cx, cy, mx, my, mdx, mdy]);
 
+  const down = e => {
+    e.preventDefault();
+    const [x, y] = getPointerPos(svg.current, e);
+    switch (tool) {
+      case "pen":
+        setLine([[x - cx, y - cy]]);
+        break;
+      case "hand":
+        setMovementStart([x, y]);
+        setPointerPos([x, y]);
+    }
+  };
+
+  const move = e => {
+    const [x, y] = getPointerPos(svg.current, e);
+    switch (tool) {
+      case "pen":
+        if (line) {
+          setLine([...line, [x - cx, y - cy]]);
+        }
+        break;
+      case "hand":
+        if (e.buttons && mx !== undefined && my !== undefined) {
+          setPointerPos([x, y]);
+        }
+    }
+  };
+  const up = e => {
+    switch (tool) {
+      case "pen":
+        if (line) {
+          onCreatePath(JSON.stringify(line), color);
+          setLine();
+        }
+        break;
+      case "hand":
+        setMovementStart([0, 0]);
+        setPointerPos([0, 0]);
+        setCoordinates([cx + mdx - mx, cy + mdy - my]);
+    }
+  };
+
   return (
     <div className="drawing">
       <div className="drawing-header">
@@ -92,64 +134,12 @@ export const Draw = ({ drawing, onCreatePath, onSetTitle }) => {
         </div>
         <svg
           ref={svg}
-          onMouseDown={e => {
-            switch (tool) {
-              case "pen":
-                setLine([[e.nativeEvent.offsetX, e.nativeEvent.offsetY]]);
-                break;
-              case "hand":
-                setMovementStart([
-                  e.nativeEvent.offsetX,
-                  e.nativeEvent.offsetY
-                ]);
-                setPointerPos([e.nativeEvent.offsetX, e.nativeEvent.offsetY]);
-            }
-          }}
-          onMouseMove={e => {
-            switch (tool) {
-              case "pen":
-                if (line) {
-                  if (!e.buttons) {
-                    onCreatePath(JSON.stringify(line), color);
-                    setLine();
-                    return;
-                  }
-                  const current = [
-                    e.nativeEvent.offsetX,
-                    e.nativeEvent.offsetY
-                  ];
-                  const last = line[line.length - 1];
-                  if (last) {
-                    if (
-                      distance(last, current) < 2 ||
-                      distance(last, current) > 100
-                    ) {
-                      return;
-                    }
-                  }
-                  setLine([...line, current]);
-                }
-                break;
-              case "hand":
-                if (e.buttons && mx !== undefined && my !== undefined) {
-                  setPointerPos([e.nativeEvent.offsetX, e.nativeEvent.offsetY]);
-                }
-            }
-          }}
-          onMouseUp={e => {
-            switch (tool) {
-              case "pen":
-                if (line) {
-                  onCreatePath(JSON.stringify(line), color);
-                }
-                setLine();
-                break;
-              case "hand":
-                setMovementStart([0, 0]);
-                setPointerPos([0, 0]);
-                setCoordinates([cx + mdx - mx, cy + mdy - my]);
-            }
-          }}
+          onTouchStart={down}
+          onTouchMove={move}
+          onTouchEnd={up}
+          onMouseDown={down}
+          onMouseMove={move}
+          onMouseUp={up}
         />
       </div>
     </div>
@@ -158,3 +148,20 @@ export const Draw = ({ drawing, onCreatePath, onSetTitle }) => {
 
 const distance = (a, b) =>
   Math.sqrt(Math.pow(b[0] - a[0], 2) + Math.pow(b[1] - a[1], 2));
+
+const getPointerPos = (ref, e) => {
+  const rect = ref.getBoundingClientRect();
+
+  // use cursor pos as default
+  let clientX = e.clientX;
+  let clientY = e.clientY;
+
+  // use first touch if available
+  if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  }
+
+  // return mouse/touch position inside canvas
+  return [clientX - rect.left, clientY - rect.top];
+};
