@@ -38,7 +38,7 @@ export const GunDraw = ({ id }) => {
 
   useEffect(() => {
     const gun = Gun({
-      peers: ["https://gunjs.herokuapp.com/gun"]
+	  peers: ["https://gunjs.herokuapp.com/gun", "http://nmr.io:8765/gun"],
     });
     setGun(gun);
   }, []);
